@@ -1,18 +1,24 @@
 import '@/lib/optimizely'
 import '@/cms/registry'
 import type { Metadata } from "next";
-import { Caveat, Fraunces, Geist_Mono, Poppins, Space_Grotesk, Syne } from "next/font/google";
+import { Bricolage_Grotesque, Caveat, Geist_Mono, Poppins, Sora, Source_Serif_4, Syne, Tilt_Neon } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { MotionObserver } from "@/components/providers/MotionObserver";
 import { getSiteSettings, getRequestDomain, buildThemeCSS, getRequestLocale } from '@/lib/optimizely'
 
+// Weights are limited to the set the product UI actually renders:
+// 300 (light — stat values, banner lede), 400 (body), 500 (medium — nav/UI),
+// 600 (title/label), 700 (headline), 800 (display). Thin/ExtraLight/Black
+// (100/200/900) are unused in product and intentionally not shipped.
 const poppins = Poppins({
   variable: "--font-poppins",
   subsets: ["latin"],
-  weight: ["100", "200", "300", "400", "500", "600", "700", "800", "900"],
+  weight: ["300", "400", "500", "600", "700", "800"],
 });
 
+// Syne — fixed accent/display font for very select areas (e.g. the Impact blog).
+// No longer themeable: the ThemeManager font axis now swaps the PRIMARY family.
 const syne = Syne({
   variable: "--font-syne",
   subsets: ["latin"],
@@ -20,27 +26,39 @@ const syne = Syne({
   display: "swap",
 });
 
-// ── Alternate DISPLAY/accent fonts (ThemeManager "Display Font" axis) ──────────
-// Both preloaded here because next/font is build-time — the CMS only selects
-// among these via lib/theme-axes.ts; it can never load an arbitrary font string.
-// display: "swap" + variable assignment matches Syne, so swapping is FOUT-free
-// at the display scale these play.
+// ── Alternate PRIMARY fonts (ThemeManager "Primary Font" axis) ─────────────────
+// Each is a full primary typeface — drives the entire hierarchy (display headers
+// down to body and labels) when selected, exactly like Poppins. All preloaded
+// here because next/font is build-time; the CMS only selects among these via
+// lib/theme-axes.ts and can never load an arbitrary font string. The 300–800
+// weight ladder matches Poppins so every type level holds, and display: "swap" +
+// variable assignment keeps the swap FOUT-free.
 //
-// Display Font A — Space Grotesk: geometric, technical-editorial; pairs with the
-// Kinetic Editorial register without competing with Poppins body.
-const spaceGrotesk = Space_Grotesk({
-  variable: "--font-display-a",
+// Primary A — Source Serif 4: the lone serif. The institutional / editorial pole
+// — gravitas for medical, financial, and legal verticals, and categorically
+// distinct from the three sans. Strong 800 for display, legible 400 for body.
+const sourceSerif = Source_Serif_4({
+  variable: "--font-primary-a",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: ["300", "400", "500", "600", "700", "800"],
   display: "swap",
 });
 
-// Display Font B — Fraunces: a characterful old-style serif display (the "serif
-// display" note in DESIGN.md §4); brings editorial warmth at section openers.
-const fraunces = Fraunces({
-  variable: "--font-display-b",
+// Primary B — Sora: squared geometric sans engineered for technical brands.
+// The precise / engineered pole; large display sizes read milled-from-metal.
+const sora = Sora({
+  variable: "--font-primary-b",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "900"],
+  weight: ["300", "400", "500", "600", "700", "800"],
+  display: "swap",
+});
+
+// Primary C — Bricolage Grotesque: contemporary grotesque with irregular detail.
+// The character / expressive pole; exceptional display presence under gradient fills.
+const bricolage = Bricolage_Grotesque({
+  variable: "--font-primary-c",
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700", "800"],
   display: "swap",
 });
 
@@ -53,6 +71,17 @@ const geistMono = Geist_Mono({
 // script fonts. Used exclusively by LaserSignature on the QuoteBlock.
 const caveat = Caveat({
   variable: "--font-signature",
+  subsets: ["latin"],
+  weight: ["400"],
+  display: "swap",
+});
+
+// Neon font — Tilt Neon 400: a clean monoline display face that reads as a single
+// bent glass tube, the foundation of the white-core / colored-glow neon sign look.
+// Single weight, display-only. Used exclusively by the PrimaryText "neon" header
+// effect (same scoped pattern as Caveat for the QuoteBlock signature).
+const tiltNeon = Tilt_Neon({
+  variable: "--font-tilt-neon",
   subsets: ["latin"],
   weight: ["400"],
   display: "swap",
@@ -72,17 +101,17 @@ export async function generateMetadata(): Promise<Metadata> {
   const domain   = await getRequestDomain()
   const locale   = await getRequestLocale()
   const settings = await getSiteSettings(domain, locale)
-  const siteName = (settings?.siteName as string | null | undefined) ?? 'OptiTech'
+  const siteName = (settings?.siteName as string | null | undefined) ?? 'Site Accelerator'
   return {
     title: {
       default:  siteName,
       // Applied automatically to every CMS page's string title:
-      //   seoTitle "Using the SDK"  →  <title>Using the SDK | OptiTech</title>
-      //   seoTitle blank            →  <title>OptiTech</title>  (the default above)
+      //   seoTitle "Using the SDK"  →  <title>Using the SDK | Site Accelerator</title>
+      //   seoTitle blank            →  <title>Site Accelerator</title>  (the default above)
       template: `%s | ${siteName}`,
     },
     description: (settings?.defaultSeoDescription as string | null | undefined)
-      ?? 'OptiTech — bold, forward-moving.',
+      ?? 'Site Accelerator — a configurable, multi-vertical site framework.',
   }
 }
 
@@ -116,7 +145,7 @@ export default async function RootLayout({
       // client/server diff when localStorage overrides the CMS default.
       data-default-theme={defaultMode}
       data-theme={defaultMode}
-      className={`${poppins.variable} ${geistMono.variable} ${syne.variable} ${spaceGrotesk.variable} ${fraunces.variable} ${caveat.variable} h-full antialiased`}
+      className={`${poppins.variable} ${geistMono.variable} ${syne.variable} ${sourceSerif.variable} ${sora.variable} ${bricolage.variable} ${caveat.variable} ${tiltNeon.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <head>

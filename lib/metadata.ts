@@ -28,6 +28,14 @@ export type PageSeoFields = {
   /** Extracted at render time when schemaType === 'FAQPage' — populated by
    *  traversing the composition tree for OT_AccordionBlock items. */
   faqItems?:         Array<{ question: string; answer: string }> | null
+  /** Populated for OT_PractitionerPage (schemaType 'Person') — drives the
+   *  Person JSON-LD node. Built from the referenced practitioner record. */
+  person?: {
+    name?:        string
+    jobTitle?:    string
+    description?: string
+    worksFor?:    string
+  } | null
 }
 
 /**
@@ -82,7 +90,7 @@ export function buildPageMetadata(
   const richTitle =
     pageTitle && site.siteName
       ? `${pageTitle} | ${site.siteName}`
-      : pageTitle ?? site.siteName ?? 'OptiTech'
+      : pageTitle ?? site.siteName ?? 'Site Accelerator'
 
   const description = page.seoDescription ?? site.defaultSeoDescription ?? undefined
 

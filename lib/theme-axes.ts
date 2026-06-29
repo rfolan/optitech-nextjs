@@ -24,28 +24,36 @@ export const CORNER_STYLES = {
 export type CornerStyleKey = keyof typeof CORNER_STYLES
 export const DEFAULT_CORNER_STYLE: CornerStyleKey = 'sharp'
 
-// ── Display / Accent Font ───────────────────────────────────────────────────
+// ── Primary Font ──────────────────────────────────────────────────────────────
 // next/font is build-time: only fonts preloaded in app/layout.tsx can be used.
-// Each option maps to the CSS var that next/font assigned. Scoped to the DISPLAY
-// role (Syne's job per DESIGN.md §4); body stays Poppins.
-export const DISPLAY_FONTS = {
-  syne:         { var: 'var(--font-syne)',      label: 'Syne (default)'  },
-  spaceGrotesk: { var: 'var(--font-display-a)', label: 'Space Grotesk'   },
-  fraunces:     { var: 'var(--font-display-b)', label: 'Fraunces'        },
+// Each option maps to the CSS var that next/font assigned. This is the WHOLE
+// hierarchy (display headers → body → labels) — it overrides --ot-font-sans, so
+// every type level, gradient fill, and bloom header follows the selected family.
+// Every option ships the 300–800 weight ladder Poppins uses. (Syne stays a fixed,
+// non-themeable accent font for select areas — see app/layout.tsx.)
+export const PRIMARY_FONTS = {
+  poppins:        { var: 'var(--font-poppins)',   label: 'Poppins (default)' },
+  sourceSerif:    { var: 'var(--font-primary-a)', label: 'Source Serif'      },
+  sora:           { var: 'var(--font-primary-b)', label: 'Sora'              },
+  bricolage:      { var: 'var(--font-primary-c)', label: 'Bricolage Grotesque' },
 } as const
 
-export type DisplayFontKey = keyof typeof DISPLAY_FONTS
-export const DEFAULT_DISPLAY_FONT: DisplayFontKey = 'syne'
+export type PrimaryFontKey = keyof typeof PRIMARY_FONTS
+export const DEFAULT_PRIMARY_FONT: PrimaryFontKey = 'poppins'
 
 // ── Motion Intensity ────────────────────────────────────────────────────────
 // A single unitless multiplier on the --ot-dur-* scale (incl. ambient loops).
 // Composes with, never overrides, OS reduced-motion: the value only feeds the
 // no-preference durations — the `prefers-reduced-motion: reduce` static blocks
 // are independent and always win. No "off" option (the OS owns that floor).
+// A LARGER multiplier lengthens every --ot-dur-* → slower, gentler motion;
+// a SMALLER one shortens them → snappier motion. So Calm (relaxed, unhurried)
+// scales UP and Energetic (quick, lively) scales DOWN. Easy to invert by reflex —
+// "0.7 looks like less" is the trap: less duration is faster, not calmer.
 export const MOTION_INTENSITIES = {
-  calm:      0.7,
+  calm:      1.3,
   default:   1,
-  energetic: 1.3,
+  energetic: 0.7,
 } as const
 
 export type MotionIntensityKey = keyof typeof MOTION_INTENSITIES
@@ -59,9 +67,9 @@ export function resolveCornerStyle(key: string | null | undefined) {
   return CORNER_STYLES[key as CornerStyleKey] ?? null
 }
 
-export function resolveDisplayFont(key: string | null | undefined) {
-  if (!key || key === DEFAULT_DISPLAY_FONT) return null
-  return DISPLAY_FONTS[key as DisplayFontKey]?.var ?? null
+export function resolvePrimaryFont(key: string | null | undefined) {
+  if (!key || key === DEFAULT_PRIMARY_FONT) return null
+  return PRIMARY_FONTS[key as PrimaryFontKey]?.var ?? null
 }
 
 export function resolveMotionScale(key: string | null | undefined) {

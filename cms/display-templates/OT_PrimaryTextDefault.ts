@@ -37,32 +37,6 @@ export const OT_PrimaryTextDefault = displayTemplate({
         label:    { displayName: 'Label',              sortOrder: 40 },
       },
     },
-    gradient: {
-      displayName: 'Heading gradient — Display scale only',
-      editor: 'select',
-      sortOrder: 40,
-      choices: {
-        none:     { displayName: 'None (Default)',                sortOrder: 10 },
-        brand:    { displayName: 'Brand — Primary',               sortOrder: 20 },
-        warm:     { displayName: 'Brand — Extended',              sortOrder: 30 },
-        luminous: { displayName: 'Luminous — Carved from Light',  sortOrder: 40 },
-        ember:    { displayName: 'Accent — Ember',                sortOrder: 50 },
-        extrude:  { displayName: 'Brand — Isometric Extrude',     sortOrder: 60 },
-        mono:     { displayName: 'Mono — Silver & Fog',           sortOrder: 70 },
-      },
-    },
-    depth: {
-      displayName: 'Heading depth effect — works at any scale, best at headline+',
-      editor: 'select',
-      sortOrder: 50,
-      choices: {
-        none:    { displayName: 'None (Default)',                        sortOrder: 10 },
-        extrude: { displayName: 'Comic Extrude — hard shadow stack',     sortOrder: 20 },
-        emboss:  { displayName: 'Mineral Emboss — carved into surface',  sortOrder: 30 },
-        outline: { displayName: 'Chromatic Outline — hollow wire',       sortOrder: 40 },
-        liquid:  { displayName: 'Liquid Fill — animated gradient sweep', sortOrder: 50 },
-      },
-    },
     entranceAnimation: {
       displayName: 'Entrance animation',
       editor:      'select',

@@ -27,7 +27,7 @@ export type RichTextStyleOptions = {
    * First-paragraph / block-level treatment.
    * - standard: faithful prose rendering
    * - lead: first paragraph promoted to deck size in brand color
-   * - toc: auto-generated section navigator from h2 headings, inserted after first heading
+   * - toc: auto-generated section navigator from h2 headings, inserted at the top of the block
    */
   treatment?: "standard" | "lead" | "toc";
   /** Adds a 1px brand rule above h2 and h3 headings — editorial chapter dividers */
@@ -82,11 +82,17 @@ function extractNodeText(node: any): string {
 
 function extractHeadings(content: any): HeadingEntry[] {
   const nodes: any[] = content?.children ?? [];
+  // De-duplicate ids: two headings with the same text would otherwise share an
+  // anchor and every TOC link would jump to the first. Suffix repeats (-2, -3…).
+  const seen = new Map<string, number>();
   return nodes
     .filter(n => n.type === 'heading-two')
     .map(n => {
       const text = extractNodeText(n);
-      return { text, id: slugify(text) };
+      const base = slugify(text) || 'section';
+      const count = seen.get(base) ?? 0;
+      seen.set(base, count + 1);
+      return { text, id: count === 0 ? base : `${base}-${count + 1}` };
     });
 }
 
@@ -180,39 +186,30 @@ export default function RichTextBlock({
     reveal           = "none",
   } = styleOptions;
 
-  // Build element map for toc treatment. A closure flag tracks the first heading
-  // rendered in document order so the nav panel is inserted exactly once, after it.
-  let firstHeadingRendered = false;
+  // Build element map for toc treatment. The nav panel itself is rendered above
+  // the whole RichText (see below) so it sits at the very top of the block,
+  // regardless of whether the first node is a heading or a paragraph. The map
+  // here only adds anchor ids + a back-to-contents arrow to each h2.
   const headings = treatment === 'toc' ? extractHeadings(content) : [];
 
+  // Headings render in document order, exactly as extractHeadings collected them,
+  // so walk the same array by index. This guarantees each rendered h2 id matches
+  // its TOC link's href (and inherits the same de-dup), instead of re-slugifying a
+  // possibly-different `text` source per heading.
+  let headingIndex = 0;
   const elements = treatment === 'toc' ? {
     ...baseElements,
-    'heading-one': ({ children }: any) => {
-      const isFirst = !firstHeadingRendered;
-      firstHeadingRendered = true;
+    'heading-two': ({ children }: any) => {
+      const id = headings[headingIndex++]?.id;
       return (
-        <>
-          <h1>{children}</h1>
-          {isFirst && <ArticleToc headings={headings} />}
-        </>
-      );
-    },
-    'heading-two': ({ text, children }: any) => {
-      const id = slugify(text);
-      const isFirst = !firstHeadingRendered;
-      firstHeadingRendered = true;
-      return (
-        <>
-          <h2 id={id}>
-            <span>{children}</span>
-            {!isFirst && headings.length > 0 && (
-              <a href="#article-toc" aria-label="Back to contents">
-                <ArrowUp size={12} strokeWidth={2} aria-hidden="true" />
-              </a>
-            )}
-          </h2>
-          {isFirst && <ArticleToc headings={headings} />}
-        </>
+        <h2 id={id}>
+          <span>{children}</span>
+          {headings.length > 0 && (
+            <a href="#article-toc" aria-label="Back to contents">
+              <ArrowUp size={12} strokeWidth={2} aria-hidden="true" />
+            </a>
+          )}
+        </h2>
       );
     },
   } : baseElements;
@@ -234,6 +231,7 @@ export default function RichTextBlock({
         className={innerCva({ alignment, size })}
         {...pa('content')}
       >
+        {treatment === 'toc' && <ArticleToc headings={headings} />}
         <RichText content={content ?? undefined} elements={elements} />
       </div>
     </section>

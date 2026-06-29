@@ -209,6 +209,7 @@ export default function TabsBlockClient({
           isPaused={isPaused}
           autoPlayDuration={autoPlayDuration}
           instanceId={instanceId}
+          reducedMotion={reducedMotion}
           onSelect={goToTab}
         />
 
@@ -262,23 +263,92 @@ type TriggerBarProps = {
   isPaused:         boolean
   autoPlayDuration: number
   instanceId:       string
+  reducedMotion:    boolean
   onSelect:         (idx: number) => void
 }
 
 function TriggerBar({
   tabs, activeTab, tabStyle, tabPosition, color, triggerAlign,
-  showAutoPlay, progressKey, isPaused, autoPlayDuration, instanceId, onSelect,
+  showAutoPlay, progressKey, isPaused, autoPlayDuration, instanceId,
+  reducedMotion, onSelect,
 }: TriggerBarProps) {
 
   const isSide = tabPosition === 'side'
   const isGlass = color === 'glass'
   const isBrand = color === 'brand'
 
+  // ── Scroll affordance ───────────────────────────────────────────────────
+  // The mobile trigger row scrolls horizontally with a hidden scrollbar; on its
+  // own there is no cue that tabs continue off-canvas. We track which edges have
+  // hidden content and feather them via a mask-image (see .tab-scroller), and we
+  // keep the active tab scrolled into view so autoplay / selection never lands
+  // on an invisible trigger.
+  const scrollerRef = useRef<HTMLDivElement>(null)
+  const buttonsRef  = useRef<(HTMLButtonElement | null)[]>([])
+  const [fade, setFade] = useState({ left: false, right: false })
+
+  const updateFade = useCallback(() => {
+    const el = scrollerRef.current
+    if (!el) return
+    // Side layout at md+ scrolls vertically (if at all) — no horizontal feather.
+    const max = el.scrollWidth - el.clientWidth
+    if (max <= 1) { setFade({ left: false, right: false }); return }
+    setFade({ left: el.scrollLeft > 1, right: el.scrollLeft < max - 1 })
+  }, [])
+
+  useEffect(() => {
+    const el = scrollerRef.current
+    if (!el) return
+    updateFade()
+    el.addEventListener('scroll', updateFade, { passive: true })
+    const ro = new ResizeObserver(updateFade)
+    ro.observe(el)
+    return () => { el.removeEventListener('scroll', updateFade); ro.disconnect() }
+  }, [updateFade, tabs.length])
+
+  // Keep the active trigger centered WITHIN the strip. Scroll only the strip
+  // element (never via element.scrollIntoView, which bubbles to the document):
+  // otherwise loading a page with a below-the-fold Tabs block jumps the whole
+  // viewport down to it. scrollBy on the strip moves only its own content; the
+  // unused axis clamps to 0, so this works for both the top and side layouts.
+  useEffect(() => {
+    const strip = scrollerRef.current
+    const btn   = buttonsRef.current[activeTab]
+    if (!strip || !btn) return
+    const stripRect = strip.getBoundingClientRect()
+    const btnRect   = btn.getBoundingClientRect()
+    const dx = (btnRect.left + btnRect.width  / 2) - (stripRect.left + stripRect.width  / 2)
+    const dy = (btnRect.top  + btnRect.height / 2) - (stripRect.top  + stripRect.height / 2)
+    if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return
+    strip.scrollBy({ left: dx, top: dy, behavior: reducedMotion ? 'auto' : 'smooth' })
+  }, [activeTab, reducedMotion])
+
+  // ── Keyboard navigation (WAI-ARIA tabs pattern) ─────────────────────────
+  // Roving tabindex is wired on the triggers; this moves focus + selection
+  // between them. Both axes are handled so it works in top and side layouts.
+  const onKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    const count = tabs.length
+    let next: number | null = null
+    switch (e.key) {
+      case 'ArrowRight':
+      case 'ArrowDown': next = (activeTab + 1) % count; break
+      case 'ArrowLeft':
+      case 'ArrowUp':   next = (activeTab - 1 + count) % count; break
+      case 'Home':      next = 0; break
+      case 'End':       next = count - 1; break
+      default: return
+    }
+    e.preventDefault()
+    onSelect(next)
+    buttonsRef.current[next]?.focus()
+  }, [tabs.length, activeTab, onSelect])
+
   // ── Trigger row wrapper ─────────────────────────────────────────────────
 
   const rowClass = cn(
-    // Mobile: always horizontal scroll strip
+    // Mobile: always horizontal scroll strip, with snap + edge feather
     'flex overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+    'tab-scroller snap-x snap-proximity',
     // Side position: stack vertically at md+, fixed width column
     isSide && 'md:flex-col md:overflow-x-visible md:w-[220px] md:shrink-0',
     // Alignment (top position only)
@@ -311,7 +381,17 @@ function TriggerBar({
   )
 
   return (
-    <div className={rowClass} role="tablist" aria-orientation={isSide ? 'vertical' : 'horizontal'}>
+    <div
+      ref={scrollerRef}
+      className={rowClass}
+      role="tablist"
+      aria-orientation={isSide ? 'vertical' : 'horizontal'}
+      onKeyDown={onKeyDown}
+      style={{
+        '--fade-l': fade.left  ? 'var(--tab-fade-size)' : '0px',
+        '--fade-r': fade.right ? 'var(--tab-fade-size)' : '0px',
+      } as React.CSSProperties}
+    >
       {tabs.map((tab, i) => (
         <TriggerButton
           key={i}
@@ -327,6 +407,7 @@ function TriggerBar({
           autoPlayDuration={autoPlayDuration}
           instanceId={instanceId}
           tabCount={tabs.length}
+          buttonRef={(el) => { buttonsRef.current[i] = el }}
           onSelect={onSelect}
         />
       ))}
@@ -349,13 +430,14 @@ type TriggerButtonProps = {
   autoPlayDuration: number
   instanceId:       string
   tabCount:         number
+  buttonRef:        (el: HTMLButtonElement | null) => void
   onSelect:         (idx: number) => void
 }
 
 function TriggerButton({
   tab, index, isActive, tabStyle, tabPosition, color,
   showAutoPlay, progressKey, isPaused, autoPlayDuration,
-  instanceId, tabCount, onSelect,
+  instanceId, tabCount, buttonRef, onSelect,
 }: TriggerButtonProps) {
   const isSide = tabPosition === 'side'
 
@@ -369,7 +451,7 @@ function TriggerButton({
     : 'focus-visible:ring-brand'
 
   const baseClass = cn(
-    'relative flex items-center gap-xs shrink-0 transition-colors duration-150',
+    'relative flex items-center gap-xs shrink-0 snap-start transition-colors duration-150',
     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1',
     'focus-visible:ring-offset-transparent cursor-pointer',
     focusRing,
@@ -380,6 +462,7 @@ function TriggerButton({
   if (tabStyle === 'underline') {
     return (
       <button
+        ref={buttonRef}
         role="tab"
         id={`tab-${instanceId}-${index}`}
         aria-selected={isActive}
@@ -487,6 +570,7 @@ function TriggerButton({
 
     return (
       <button
+        ref={buttonRef}
         role="tab"
         id={`tab-${instanceId}-${index}`}
         aria-selected={isActive}
@@ -538,6 +622,7 @@ function TriggerButton({
 
   return (
     <button
+      ref={buttonRef}
       role="tab"
       id={`tab-${instanceId}-${index}`}
       aria-selected={isActive}

@@ -116,7 +116,7 @@ export const OT_ThemeManager = contentType({
       type: 'string',
       format: 'selectOne',
       displayName: 'Corner Style — radius on cards, panels, glass & buttons',
-      description: 'Sharp is the OptiTech default. Soft and Rounded add a modest radius to surfaces and controls only — inputs and structure are unaffected.',
+      description: 'Sharp is the default. Soft and Rounded add a modest radius to surfaces and controls only — inputs and structure are unaffected.',
       group: 'OT_Theme',
       sortOrder: 180,
       enum: [
@@ -125,17 +125,18 @@ export const OT_ThemeManager = contentType({
         { value: 'rounded', displayName: 'Rounded — 8–10px radius' },
       ],
     },
-    displayFont: {
+    primaryFont: {
       type: 'string',
       format: 'selectOne',
-      displayName: 'Display Font — accent/display typography (body stays Poppins)',
-      description: 'Applies to display and accent type only (section openers, pull quotes, impact headers). Body text remains Poppins.',
+      displayName: 'Primary Font — the whole type hierarchy (display, headline, body, labels)',
+      description: 'Sets the primary typeface for the entire site — display headers down to body and labels. All four ship the same 300–800 weight range and hold up under the display, gradient-fill, and bloom treatments. Syne stays reserved for select accent areas.',
       group: 'OT_Theme',
       sortOrder: 185,
       enum: [
-        { value: 'syne',         displayName: 'Syne — geometric (default)' },
-        { value: 'spaceGrotesk', displayName: 'Space Grotesk — technical-editorial' },
-        { value: 'fraunces',     displayName: 'Fraunces — characterful serif' },
+        { value: 'poppins',       displayName: 'Poppins — geometric, friendly (default)' },
+        { value: 'sourceSerif', displayName: 'Source Serif — editorial, trustworthy (serif)' },
+        { value: 'sora',          displayName: 'Sora — squared, technical' },
+        { value: 'bricolage',     displayName: 'Bricolage Grotesque — expressive, characterful' },
       ],
     },
     motionIntensity: {
@@ -146,9 +147,9 @@ export const OT_ThemeManager = contentType({
       group: 'OT_Theme',
       sortOrder: 190,
       enum: [
-        { value: 'calm',      displayName: 'Calm — slower (0.7×)' },
+        { value: 'calm',      displayName: 'Calm — slower (1.3×)' },
         { value: 'default',   displayName: 'Default — current timing (1×)' },
-        { value: 'energetic', displayName: 'Energetic — faster (1.3×)' },
+        { value: 'energetic', displayName: 'Energetic — faster (0.7×)' },
       ],
     },
 

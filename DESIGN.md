@@ -1,6 +1,6 @@
 ---
-name: OptiTech CMS Demo Framework
-description: Configurable editorial brand platform. Dark-first, depth-forward, choreographed motion. Full CMS theme override via ThemeManager. Impeccable-collaborative component expansion.
+name: Site Accelerator
+description: Configurable multi-vertical site framework. Token-driven, dark-first by default, depth-forward, choreographed motion. Full CMS theme override via ThemeManager. Impeccable-collaborative component expansion.
 colors:
   brand: "var(--ot-brand)"          # default oklch(55% 0.18 195) — overrideable via ThemeManager
   brand-hover: "var(--ot-brand-hover)"
@@ -51,25 +51,26 @@ spacing:
   2xl: "128px"
 ---
 
-# Design System: OptiTech CMS Demo Framework
+# Design System: Site Accelerator
 
 ## 1. Overview and Evolution
 
-This project started as a fixed teal brand site. It has evolved into something more architecturally interesting: a **configurable, CMS-driven demo platform** that demonstrates how Optimizely SaaS CMS can power a fully themeable, editorially confident web presence.
+Site Accelerator is a **configurable, multi-vertical site framework** built on the Optimizely SaaS CMS: one shared component library and token system that can be re-themed into a credible site for any vertical (financial services, healthcare, retail, legal, and more) without code changes. Its first incarnation was a single teal brand site; that look now survives only as the **default theme** — one example skin among many, not the framework's identity.
 
 The design framework has two jobs:
 
-1. **Standalone quality** — the default theme (mineral teal palette, Poppins type system, dark-first grounds) must look like a considered, professional design in its own right. Not a template, not a demo site. Something that earns attention.
+1. **Standalone quality** — the default theme (mineral teal palette, Poppins type system, dark-first grounds) must look like a considered, professional design in its own right. Not a template, not a generic demo. Something that earns attention. Every vertical theme built on the framework must clear that same bar.
 
-2. **Rebranding surface** — everything visually distinctive is expressed through semantic CSS tokens (`--ot-brand`, `--ot-accent`, `--ot-canvas`, etc.) that the ThemeManager overrides via a CMS-injected `<style>` block. Swap the brand color and watch the entire site — bloom halos, gradient fills, button fills, blockquote borders, chromatic shadows — recalibrate automatically.
+2. **Rebranding surface** — everything visually distinctive is expressed through semantic CSS tokens (`--ot-brand`, `--ot-accent`, `--ot-canvas`, etc.) that the ThemeManager overrides via a CMS-injected `<style>` block. Swap the brand color and watch the entire site — bloom halos, gradient fills, button fills, blockquote borders, chromatic shadows — recalibrate automatically. (The `--ot-` token prefix is a historical name; it is theme-neutral and carries no brand meaning.)
 
 **Creative North Star: "The Kinetic Editorial"**
 
-Precision-crafted. Editorial confidence. Choreographed motion. The visual language signals craft and self-awareness — a product that demonstrates its own values in how it presents itself. Depth and motion are expressive tools, not decorations.
+Precision-crafted. Editorial confidence. Choreographed motion. This is the character of the default theme and the **craft bar every vertical theme must meet** — the framework signals its values through how convincingly it presents itself in any industry. Depth and motion are expressive tools, not decorations. A vertical theme may dial the energy up or down, but never below this standard of craft.
 
 **What this is not:**
 - A static design spec. Components expand collaboratively with impeccable, which adds polish and advanced effects.
-- A fixed brand. The token system is the brand; any color can be the brand.
+- A fixed brand. The token system is the brand; any color, for any vertical, can be the brand.
+- A single-industry look. The default theme is one expression; the framework's whole point is range across verticals.
 - A vanilla Claude Code output. The depth system, bloom effects, stagger choreography, and glass surfaces are deliberately distinct from default Tailwind patterns.
 
 ---
@@ -147,13 +148,21 @@ Dark mode is the default. `data-theme="dark"` on `<html>` is set before first pa
 
 ## 4. Typography
 
-**Three fonts, one system:**
+**One themeable primary family + fixed-role companions.**
 
-| Variable | Font | Role |
+The **primary family** drives the entire hierarchy (display → body → label). It is **Poppins by default and swappable per vertical** through the ThemeManager "Primary Font" axis, which overrides the `--ot-font-sans` token (Tailwind `font-sans`). Every primary ships the same 300–800 weight ladder, so all type levels hold across a swap with no FOUT (`display: swap` + build-time `next/font`).
+
+| Token / axis value | Font | Role |
 |---|---|---|
-| `--font-sans` | Poppins | Everything. Display, headline, title, body, label, buttons, nav. |
-| `--font-syne` | Syne (variable) | Accent moments only. Section openers, pull quotes. Once per viewport max. |
+| `--ot-font-sans` (default) | Poppins | Primary — the whole hierarchy: display, headline, title, body, label, buttons, nav. |
+| Primary axis → `--font-primary-a` | Source Serif 4 | Primary alternate — institutional / editorial pole (medical, financial, legal). The one sanctioned serif. |
+| Primary axis → `--font-primary-b` | Sora | Primary alternate — precise / engineered pole (technical brands). |
+| Primary axis → `--font-primary-c` | Bricolage Grotesque | Primary alternate — expressive / character pole. |
+| `--font-syne` | Syne (variable) | Fixed accent/display only. Section openers, pull quotes. Once per viewport max. Not themeable. |
 | `--font-mono` | Geist Mono | Code samples, technical labels, data readouts. |
+| `--ot-font-signature` | Caveat 400 | Signature only — the QuoteBlock LaserSignature. Never general copy. |
+
+**Component authors:** reference `--ot-font-sans` (or `font-sans`) for the primary family — never a raw `--font-poppins`, which bypasses the theme axis. **Serif is permitted only** as the Source Serif primary selected through the axis; never introduce another serif or hardcode a family.
 
 ### Scale and hierarchy
 
@@ -345,6 +354,24 @@ These global utilities reference bloom tokens and must be defined in `globals.cs
 | `.display-extrude` | Isometric extrusion — fg face + accent rim stroke + 12-layer 45° shadow stack. Max depth 0.42em. Animated via `--display-depth` on entrance. |
 | `.card-hover-tilt` | Isometric back-face visible at rest (solid 2-layer offset shadow in brand-hover). On hover: `perspective(900px) rotateX(-3deg) rotateY(5deg)` + deepened shadow. Reduced-motion: shadow only. |
 | `.logo-invert-dark` | `filter: brightness(0) invert(1)` in dark mode; removed in light mode |
+| `.tab-scroller` | Horizontal tab-trigger strip. Dynamic `mask-image` edge-feather (driven by `--fade-l`/`--fade-r` set from scroll position) signals off-canvas tabs; inert when nothing overflows. Pairs with scroll-snap + JS `scrollIntoView` keeping the active trigger in view; `scroll-behavior` is reduced-motion gated. |
+
+### Header Effects (consolidated set)
+
+The heading block (`OT_PrimaryTextBlock`) exposes a single **Header effect** select. Every option is token-derived (works on any brand/accent scheme) and handles both dark and light mode (mode-agnostic construction on the mode-constant brand/accent tokens, or an explicit `[data-theme="light"]` pass). All are motion-safe and keep a legible base letterform.
+
+| Marketer label | Class | Effect |
+|---|---|---|
+| Gradient | `.ot-fx-gradient` | Static brand→accent diagonal `background-clip:text` fill; light mode darkens both stops |
+| Animated Gradient | `.ot-depth-liquid` | The fill animated as a slow shimmer/sweep; freezes mid-sweep under reduced-motion |
+| 3D Depth | `.ot-depth-extrude` | Hard isometric 45° offset shadow stack; `[data-theme=light]` + `.bg-brand-fill` variants |
+| Embossed | `.ot-depth-emboss` | Carved-into-surface: opposing cavity shadow + rim highlight |
+| Outline | `.ot-depth-outline` | Hollow wire letterforms, brand stroke + `drop-shadow` glow |
+| Glitch | `.ot-fx-chromatic` | RGB channel-split fringe (brand/accent offsets) on an fg face; subtle motion-safe jitter |
+| Highlight | `.ot-fx-highlight` | Accent marker swipe behind the text (inline span, `box-decoration-break: clone`); fg-on-accent text |
+| Glow | `.ot-fx-glow` | Backlit aurora halo (brand + accent bloom `drop-shadow`); tightened on light grounds |
+
+The older `.display-gradient-*` / `.display-extrude` classes are superseded by this set and no longer exposed in the CMS.
 
 ---
 
@@ -387,9 +414,10 @@ When impeccable introduces a new effect, document it here under the relevant com
 ### Don't
 
 - **Don't** hardcode `oklch(55% 0.18 195)` or any color literal in component code. That color lives in `tokens.css` as `--ot-brand`. Component code references the token.
-- **Don't** use light frosted glass (white/near-white `backdrop-blur` on light backgrounds). OptiTech's glass is dark-tinted. If it looks like an iOS popover, it's wrong.
+- **Don't** use light frosted glass (white/near-white `backdrop-blur` on light backgrounds). The system's glass is dark-tinted. If it looks like an iOS popover, it's wrong.
 - **Don't** use neutral grey shadows (`rgba(0,0,0,0.2)` etc.). Shadows carry the brand hue via bloom tokens.
 - **Don't** use the SaaS cream aesthetic: off-white cards, pastel gradient blobs, rounded pill buttons, floating feature icon grids.
+- **Don't** reach for a vertical's cliché-by-reflex when theming a new industry: healthcare teal-on-white, financial services navy-and-gold, legal mahogany-and-serif, retail loud-discount-banners. A vertical theme must read as credible for its industry without being that category's obvious training-data default. Re-skin with a committed, considered palette, not the first guess.
 - **Don't** use corporate navy, or the synthwave/crypto look: neon-bright literals glowing on pure black (`#000`), laser grids receding into a void, chrome-and-magenta "Web3 energy." The ban is on *that specific aesthetic* — neon-on-true-black with token-bypassing color literals — **not** on a retro feel in general. Retro editorial display treatments are explicitly sanctioned (see the Do below and §4 *Retro display headers*); the line they must not cross is leaving the tinted-ground / semantic-token system.
 - **Don't** use side-stripe borders (a colored `border-left` or `border-right` > 1px as a decorative accent). Use background tints, full borders, or nothing.
 - **Don't** use Syne below headline scale, at weight above 525, or more than once per viewport.

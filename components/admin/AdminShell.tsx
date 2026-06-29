@@ -1,4 +1,3 @@
-import Image from 'next/image'
 import AdminNav from './AdminNav'
 import LogoutButton from './LogoutButton'
 import AdminHeaderTitle from './AdminHeaderTitle'
@@ -8,7 +7,7 @@ export default async function AdminShell({ children }: { children: React.ReactNo
   const domain   = await getRequestDomain()
   const locale   = await getRequestLocale()
   const settings = await getSiteSettings(domain, locale)
-  const siteName = (settings?.siteName as string | undefined) ?? 'OptiTech'
+  const siteName = (settings?.siteName as string | undefined) ?? 'Site Accelerator'
   const baseUrl  = await getRequestBaseUrl()
   const hostname = baseUrl ? baseUrl.replace(/^https?:\/\//, '') : domain
 
@@ -17,29 +16,13 @@ export default async function AdminShell({ children }: { children: React.ReactNo
       {/* ── Sidebar ─────────────────────────────────────────────────────────── */}
       <aside className="oa-sidebar w-[220px] shrink-0 flex flex-col border-r">
         {/* Wordmark */}
-        <div className="oa-wordmark-border h-[58px] flex items-center gap-[10px] px-md border-b shrink-0">
-          <Image
-            src="/brand/logo/optitech-icon.svg"
-            alt="OptiTech"
-            width={36}
-            height={27}
-            className="shrink-0"
-            priority
-          />
-          <div className="flex flex-col leading-none gap-0.5">
-            <span
-              className="text-[0.6875rem] font-bold tracking-[0.12em] uppercase leading-none"
-              style={{ color: 'oklch(84% 0.010 175)' }}
-            >
-              OptiTech
-            </span>
-            <span
-              className="text-[0.6875rem] font-bold tracking-[0.12em] uppercase leading-none"
-              style={{ color: 'oklch(68% 0.13 155)' }}
-            >
-              Admin
-            </span>
-          </div>
+        <div className="oa-wordmark-border h-[58px] flex items-center px-md border-b shrink-0 min-w-0">
+          <span
+            className="font-medium leading-none"
+            style={{ color: 'oklch(from var(--ot-brand) 80% 0.14 h)' }}
+          >
+            Admin
+          </span>
         </div>
 
         {/* Navigation */}

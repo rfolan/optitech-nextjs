@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { getClient } from '@/lib/optimizely'
 import { DEFAULT_LOCALE } from '@/lib/i18n/config'
 import type { SearchResult } from '@/lib/search'
+import { formatEventLocation } from '@/lib/eventFormat'
 
 function stripHtml(html: string): string {
   return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 220)
@@ -110,6 +111,98 @@ function buildBlankExperienceQuery(withDomain: boolean): string {
   `
 }
 
+// Practitioner search — OT_PractitionerProfile holds the searchable identity
+// (name, credentials, bio) plus the headshot + bio we want to surface. It is a
+// URL-less shared component, so it is NOT domain-scoped here; site isolation is
+// enforced on the page side (buildPractitionerPagesQuery), and only profiles
+// that map to an in-scope page are emitted. Locale is always applied.
+function buildPractitionerProfileQuery(): string {
+  return `
+    query SearchPractitioners($query: String!, $limit: Int!, $locale: String!) {
+      OT_PractitionerProfile(
+        orderBy: { _ranking: RELEVANCE }
+        where: {
+          _fulltext: { match: $query, fuzzy: true, synonyms: ONE }
+          _metadata: { locale: { eq: $locale } }
+        }
+        limit: $limit
+        tracking: { phrase: $query, source: "/search" }
+      ) {
+        items {
+          _track
+          _metadata { key }
+          firstName
+          lastName
+          credentials
+          headshot { url { default } }
+          bio { html }
+        }
+      }
+    }
+  `
+}
+
+// Resolves each practitioner record key → its published profile-page URL +
+// displayName. OT_PractitionerProfile has no URL of its own, so search results
+// must link to the OT_PractitionerPage that references it. Domain-scoped (when
+// withDomain) so a profile only surfaces on the site whose page is in scope.
+function buildPractitionerPagesQuery(withDomain: boolean): string {
+  const domainVar  = withDomain ? ', $domain: String' : ''
+  const metaFilter = withDomain
+    ? '_metadata: { locale: { eq: $locale }, status: { eq: "Published" }, url: { base: { eq: $domain } } }'
+    : '_metadata: { locale: { eq: $locale }, status: { eq: "Published" } }'
+  return `
+    query GetPractitionerPages($locale: String!, $limit: Int!${domainVar}) {
+      OT_PractitionerPage(
+        limit: $limit
+        where: { ${metaFilter} }
+      ) {
+        items {
+          _metadata { key url { default } displayName published }
+          practitionerRef { key }
+        }
+      }
+    }
+  `
+}
+
+// Event search — surfaces OT_EventPage with the fields that matter for events
+// (date + location carry as much weight as the title). description is HTML-stripped
+// to a short excerpt by the caller.
+function buildEventQuery(withDomain: boolean): string {
+  const domainVar    = withDomain ? ', $domain: String' : ''
+  const metaFilter   = withDomain
+    ? '_metadata: { locale: { eq: $locale }, url: { base: { eq: $domain } } }'
+    : '_metadata: { locale: { eq: $locale } }'
+  return `
+    query SearchEvents($query: String!, $limit: Int!, $locale: String!${domainVar}) {
+      OT_EventPage(
+        orderBy: { _ranking: RELEVANCE }
+        where: {
+          _fulltext: { match: $query, fuzzy: true, synonyms: ONE }
+          ${metaFilter}
+        }
+        limit: $limit
+        tracking: { phrase: $query, source: "/search" }
+      ) {
+        items {
+          _track
+          _metadata { key url { default } }
+          title
+          eventType
+          startDate
+          endDate
+          locationType
+          venueName
+          city
+          description { html }
+          featuredImage { url { default } }
+        }
+      }
+    }
+  `
+}
+
 function withTrackAuth(url: string | null | undefined): string | null {
   if (!url) return null
   const key = process.env.OPTIMIZELY_GRAPH_SINGLE_KEY
@@ -128,7 +221,7 @@ const SETTINGS_TYPES = new Set([
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl
   const q        = (searchParams.get('q') ?? '').trim()
-  const type     = (searchParams.get('type') ?? 'all') as 'all' | 'Blog' | 'Page'
+  const type     = (searchParams.get('type') ?? 'all') as 'all' | 'Blog' | 'Page' | 'Event'
   const semantic = searchParams.get('semantic') === 'true'
   const limit    = 16
 
@@ -176,7 +269,7 @@ export async function GET(req: NextRequest) {
   const seen = new Set<string>()
 
   // ── Blog results ─────────────────────────────────────────────────────────
-  if (type !== 'Page') {
+  if (type === 'all' || type === 'Blog') {
     try {
       const blogQuery = buildBlogQuery(withDomain, semantic)
       const data = await getClient().request(blogQuery, baseVars)
@@ -205,10 +298,109 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // ── Event results ──────────────────────────────────────────────────────────
+  if (type === 'all' || type === 'Event') {
+    try {
+      const eventQuery = buildEventQuery(withDomain)
+      const data = await getClient().request(eventQuery, baseVars)
+      const items: any[] = (data as any)?.OT_EventPage?.items ?? []
+      for (const item of items) {
+        if (!item._metadata?.url?.default) continue
+        if (seen.has(item._metadata.key)) continue
+        seen.add(item._metadata.key)
+        const summaryHtml = (item.description?.html as string | undefined) || undefined
+        const locationLabel = formatEventLocation({
+          locationType: item.locationType,
+          venueName:    item.venueName,
+          city:         item.city,
+        }) || undefined
+        results.push({
+          id:            item._metadata.key,
+          title:         item.title ?? 'Untitled',
+          url:           item._metadata.url.default,
+          type:          'Event',
+          excerpt:       summaryHtml ? stripHtml(summaryHtml).slice(0, 160) : undefined,
+          imageUrl:      item.featuredImage?.url?.default || undefined,
+          eventType:     item.eventType || undefined,
+          startDate:     item.startDate || undefined,
+          endDate:       item.endDate || undefined,
+          locationType:  item.locationType || undefined,
+          locationLabel,
+          _track:        withTrackAuth(item._track),
+        })
+      }
+    } catch (err) {
+      console.error('[search] event query failed:', err)
+    }
+  }
+
+  // ── Practitioner results ────────────────────────────────────────────────
+  // OT_PractitionerProfile carries the searchable identity (name, credentials,
+  // bio) but has no URL; it surfaces via the OT_PractitionerPage that references
+  // it. Two queries + a client-side join: full-text the profiles, then resolve
+  // each matched profile key → its in-scope published page. Runs before the
+  // BlankExperience/_Content blocks so the resolved page keys land in `seen`
+  // first — OT_PractitionerPage is an _experience, so the generic _Content
+  // fallback would otherwise re-emit it as a bare Page without the headshot.
+  if (type === 'all' || type === 'Page') {
+    try {
+      const profileVars = { query: q, limit, locale }
+      const profileData = await getClient().request(buildPractitionerProfileQuery(), profileVars)
+      const profiles: any[] = (profileData as any)?.OT_PractitionerProfile?.items ?? []
+
+      if (profiles.length > 0) {
+        // Resolve profile key → page. Fetch up to the Graph limit cap so the
+        // join isn't truncated by the default 16-row result window.
+        const pageVars = { locale, limit: 100, ...domainVars }
+        const pageData = await getClient().request(buildPractitionerPagesQuery(withDomain), pageVars)
+        const pages: any[] = (pageData as any)?.OT_PractitionerPage?.items ?? []
+
+        const pageByProfile = new Map<string, any>()
+        for (const page of pages) {
+          const refKey = page.practitionerRef?.key
+          if (refKey && page._metadata?.url?.default && !pageByProfile.has(refKey)) {
+            pageByProfile.set(refKey, page)
+          }
+        }
+
+        // Emit in profile relevance order; only profiles with an in-scope page.
+        for (const profile of profiles) {
+          const profileKey = profile._metadata?.key
+          if (!profileKey) continue
+          const page = pageByProfile.get(profileKey)
+          if (!page) continue
+          const pageKey = page._metadata.key
+          if (seen.has(pageKey)) continue
+          seen.add(pageKey)
+
+          const name        = [profile.firstName, profile.lastName].filter(Boolean).join(' ').trim()
+          const credentials = (profile.credentials as string | undefined)?.trim()
+          const title       = name
+            ? (credentials ? `${name}, ${credentials}` : name)
+            : (page._metadata.displayName ?? 'Untitled')
+          const bioHtml     = (profile.bio?.html as string | undefined) || undefined
+
+          results.push({
+            id:        pageKey,
+            title,
+            url:       page._metadata.url.default,
+            type:      'Page',
+            published: page._metadata.published || undefined,
+            excerpt:   bioHtml ? stripHtml(bioHtml) : undefined,
+            imageUrl:  profile.headshot?.url?.default || undefined,
+            _track:    withTrackAuth(profile._track),
+          })
+        }
+      }
+    } catch (err) {
+      console.error('[search] practitioner query failed:', err)
+    }
+  }
+
   // ── Experience results (typed — enriched with seoDescription / ogImage) ──
   // Runs before the generic _Content query so enriched data wins the seen-Set
   // deduplication; _Content then fills in any remaining non-experience pages.
-  if (type !== 'Blog') {
+  if (type === 'all' || type === 'Page') {
     try {
       const expQuery = buildBlankExperienceQuery(withDomain)
       const data = await getClient().request(expQuery, baseVars)
@@ -242,6 +434,7 @@ export async function GET(req: NextRequest) {
         const types: string[] = item._metadata?.types ?? []
         if (!types.includes('_Page') && !types.includes('_Experience')) continue
         if (types.includes('OT_BlogPage')) continue
+        if (types.includes('OT_EventPage')) continue
         if (types.some(t => SETTINGS_TYPES.has(t))) continue
         if (!item._metadata?.url?.default) continue
         if (seen.has(item._metadata.key)) continue

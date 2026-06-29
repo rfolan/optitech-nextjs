@@ -98,8 +98,9 @@ const triggerCva = cva(
   [
     'group flex w-full items-start justify-between gap-md',
     'py-md text-left',
-    // Focus ring — keyboard-accessible, never show on mouse
-    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-transparent',
+    // Focus ring — keyboard-accessible, never show on mouse. Ring color is set
+    // per surface (below) so it never lands brand-on-brand and vanishes.
+    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent',
     // Transition
     'transition-colors duration-150',
   ].join(' '),
@@ -110,13 +111,21 @@ const triggerCva = cva(
         boxed:  'px-md',
         clean:  '',
       },
+      color: {
+        canvas:  'focus-visible:ring-brand',
+        surface: 'focus-visible:ring-brand',
+        brand:   'focus-visible:ring-fg-on-brand',
+      },
     },
-    defaultVariants: { borderStyle: 'ruled' },
+    defaultVariants: { borderStyle: 'ruled', color: 'canvas' },
   },
 )
 
 const questionCva = cva(
-  'text-title font-semibold leading-snug tracking-tight flex-1 text-balance transition-colors duration-150',
+  // Title-scale tokens (leading-title / tracking-title) match every other title in
+  // the system; the old leading-snug / tracking-tight were generic Tailwind defaults
+  // that read cramped at 20px Poppins and diverged from the type scale.
+  'text-title font-semibold leading-title tracking-title flex-1 text-balance transition-colors duration-150',
   {
     variants: {
       color: {
@@ -132,10 +141,10 @@ const questionCva = cva(
 const iconCva = cva(
   [
     'shrink-0 mt-0.5',
-    // Rotate +45° → × when open. Kinetic ease from design system.
-    'transition-transform duration-300',
+    // Rotate +45° → × when open, on the same slower, smooth curve as the row reveal.
+    'transition-transform [transition-duration:var(--ot-dur-accordion)]',
     'group-data-[state=open]:rotate-45',
-    '[transition-timing-function:var(--ot-ease-kinetic)]',
+    '[transition-timing-function:var(--ot-ease-accordion)]',
   ].join(' '),
   {
     variants: {
@@ -149,15 +158,17 @@ const iconCva = cva(
   },
 )
 
-// Content element is the grid container (set by global CSS via [data-radix-accordion-content]).
-// The animation classes target grid-template-rows — no height/layout property animated.
+// Standard Radix height animation: overflow-hidden clips the content while height
+// animates 0 ↔ --radix-accordion-content-height. motion-safe: gates it for
+// reduced-motion (which then opens/closes instantly).
 const contentClasses = [
-  'motion-safe:data-[state=open]:animate-accordion-open',
-  'motion-safe:data-[state=closed]:animate-accordion-close',
+  'overflow-hidden',
+  'motion-safe:data-[state=open]:animate-accordion-down',
+  'motion-safe:data-[state=closed]:animate-accordion-up',
 ].join(' ')
 
 const answerCva = cva(
-  'text-body leading-body max-w-[68ch] text-pretty',
+  'text-body leading-body max-w-(--ot-measure-wide) text-pretty',
   {
     variants: {
       color: {
@@ -294,7 +305,7 @@ function AccordionItemNode({ value, item, color, borderStyle }: ItemNodeProps) {
     >
       <RadixAccordion.Header asChild>
         <h3>
-          <RadixAccordion.Trigger className={triggerCva({ borderStyle })}>
+          <RadixAccordion.Trigger className={triggerCva({ borderStyle, color })}>
             <span className={questionCva({ color })}>
               {item.question}
             </span>
@@ -307,14 +318,12 @@ function AccordionItemNode({ value, item, color, borderStyle }: ItemNodeProps) {
         </h3>
       </RadixAccordion.Header>
 
-      {/* Grid container (display:grid set by global CSS on [data-radix-accordion-content]).
-          Inner div has min-h-0 + overflow-hidden to complete the grid-rows reveal trick. */}
+      {/* Radix sets --radix-accordion-content-height on this element; the
+          overflow-hidden + height keyframes animate the reveal. */}
       <RadixAccordion.Content className={contentClasses}>
-        <div className="min-h-0 overflow-hidden">
-          <p className={answerCva({ color, borderStyle })}>
-            {item.answer}
-          </p>
-        </div>
+        <p className={answerCva({ color, borderStyle })}>
+          {item.answer}
+        </p>
       </RadixAccordion.Content>
     </RadixAccordion.Item>
   )

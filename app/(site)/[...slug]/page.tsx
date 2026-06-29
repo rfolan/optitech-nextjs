@@ -13,12 +13,17 @@ import {
 } from '@/lib/optimizely'
 import { getBlogPage, getLatestBlogPosts, getAuthorName } from '@/lib/blog'
 import { getCampaignPage, getCampaignPageMeta, mapCampaignPageRaw } from '@/lib/campaign'
+import { getEventPage } from '@/lib/events'
+import { getPractitioner } from '@/lib/practitioners'
+import { practitionerName, primaryArea, bioPreview } from '@/lib/practitionerFormat'
+import PractitionerHeader from '@/components/practitioner/PractitionerHeader'
 import { withAppContext }       from '@optimizely/cms-sdk/react/server'
 import { PreviewComponent }    from '@optimizely/cms-sdk/react/client'
 import type { PreviewParams }  from '@optimizely/cms-sdk'
 import { CompositionRenderer } from '@/lib/CompositionRenderer'
 import BlogPage                from '@/components/pages/BlogPage'
 import CampaignPage            from '@/components/pages/CampaignPage'
+import EventPage               from '@/components/pages/EventPage'
 import Script                  from 'next/script'
 import { DraftStateBanner }    from '@/components/preview/DraftStateBanner'
 import { ExternalPreviewLinkPanel } from '@/components/preview/ExternalPreviewLinkPanel'
@@ -115,6 +120,47 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       settings ?? {},
       path,
     )
+  }
+
+  // Event page — fetch the full content record (includes SEO fields); fall back
+  // to the event title when no explicit SEO title is set.
+  if (exp?.__typename === 'OT_EventPage' && exp?._metadata?.key) {
+    const eventContent = await getEventPage(exp._metadata.key as string, locale)
+    const seoFields: PageSeoFields = {
+      ...(eventContent ?? {}),
+      seoTitle: eventContent?.seoTitle ?? eventContent?.title ?? undefined,
+      ogImage:  eventContent?.ogImage ?? eventContent?.featuredImage ?? undefined,
+      schemaType: eventContent?.schemaType || 'Event',
+    }
+    return buildPageMetadata(seoFields, settings ?? {}, path)
+  }
+
+  // Practitioner page — _experience; build SEO from page fields with a smart
+  // fallback to the referenced practitioner's name + credentials + primary area.
+  if (exp?.__typename === 'OT_PractitionerPage') {
+    const refKey = (exp as any)?.practitionerRef?.key as string | undefined
+    const practitioner = refKey ? await getPractitioner(refKey, locale) : null
+
+    let fallbackTitle: string | undefined
+    if (practitioner) {
+      const name    = practitionerName(practitioner, false)
+      const creds    = practitioner.credentials ? `, ${practitioner.credentials}` : ''
+      const primary  = primaryArea(practitioner.practiceAreas)
+      const areaPart = primary?.areaName ? ` — ${primary.areaName}` : ''
+      fallbackTitle  = `${name}${creds}${areaPart}`.trim() || undefined
+    }
+
+    const headshotOg = practitioner?.headshotUrl
+      ? { url: { default: practitioner.headshotUrl } }
+      : undefined
+
+    const seoFields: PageSeoFields = {
+      ...((exp ?? {}) as PageSeoFields),
+      seoTitle:   (exp as any)?.seoTitle ?? fallbackTitle,
+      ogImage:    (exp as any)?.ogImage ?? headshotOg,
+      schemaType: (exp as any)?.schemaType || 'Person',
+    }
+    return buildPageMetadata(seoFields, settings ?? {}, path)
   }
 
   return buildPageMetadata((exp ?? {}) as PageSeoFields, settings ?? {}, path)
@@ -370,6 +416,34 @@ async function CmsPage({ params, searchParams }: Props) {
       )
     }
 
+    // Event page — _page type rendered by its own component, not a composition
+    if (exp?.__typename === 'OT_EventPage') {
+      const contentKey = exp._metadata?.key as string | undefined
+      // Preview: getPreviewContent returns all fields. Public: targeted query.
+      const eventContent = dm.isEnabled
+        ? exp
+        : (contentKey ? await getEventPage(contentKey, locale) : null)
+
+      if (eventContent) {
+        const eventJsonLd = buildJsonLd(
+          { ...(eventContent as PageSeoFields), schemaType: (eventContent as PageSeoFields).schemaType || 'Event' },
+          settings ?? {},
+          fullPageUrl,
+        )
+
+        return (
+          <>
+            <JsonLd data={eventJsonLd} />
+            {dm.isEnabled && cmsUrl && (
+              <Script src={`${cmsUrl}/util/javascript/communicationinjector.js`} />
+            )}
+            {dm.isEnabled && <PreviewComponent />}
+            <EventPage content={eventContent as any} />
+          </>
+        )
+      }
+    }
+
     // Standalone block content (not an experience) — send to the isolated preview route
     // so it renders without site chrome and with proper communicationinjector.js setup.
     if (dm.isEnabled && exp?.__typename) {
@@ -383,6 +457,48 @@ async function CmsPage({ params, searchParams }: Props) {
       redirect(`/preview?${qs}`)
     }
     notFound()
+  }
+
+  // Practitioner page — _experience type. The referenced practitioner record
+  // populates a locked PractitionerHeader rendered OUTSIDE the composition tree;
+  // everything below is the editor's free Visual Builder composition. This is
+  // the architectural guarantee that the header always appears and cannot be
+  // moved or deleted.
+  if (exp?.__typename === 'OT_PractitionerPage') {
+    const refKey = (exp as any).practitionerRef?.key as string | undefined
+    const practitioner = refKey ? await getPractitioner(refKey, locale) : null
+
+    const primary = practitioner ? primaryArea(practitioner.practiceAreas) : null
+    const personSeo: PageSeoFields = {
+      ...(exp as PageSeoFields),
+      schemaType: (exp as PageSeoFields).schemaType || 'Person',
+      person: practitioner
+        ? {
+            name:        practitionerName(practitioner, false),
+            jobTitle:    practitioner.title ?? undefined,
+            description: bioPreview(practitioner.bio, 300) || undefined,
+            worksFor:    primary?.facility ?? undefined,
+          }
+        : null,
+    }
+    const practitionerJsonLd = buildJsonLd(personSeo, settings ?? {}, fullPageUrl)
+
+    return (
+      <>
+        <JsonLd data={practitionerJsonLd} />
+        {dm.isEnabled && cmsUrl && (
+          <Script src={`${cmsUrl}/util/javascript/communicationinjector.js`} />
+        )}
+        {dm.isEnabled && <PreviewComponent />}
+        {practitioner && (
+          <PractitionerHeader
+            practitioner={practitioner}
+            profileLabel={(exp as any).profileLabel ?? undefined}
+          />
+        )}
+        <CompositionRenderer nodes={exp.composition.nodes} />
+      </>
+    )
   }
 
   // Always extract accordion items — buildJsonLd decides whether to emit them

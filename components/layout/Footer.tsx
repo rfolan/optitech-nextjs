@@ -2,12 +2,14 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { cn } from '@/lib/utils'
 import { getSiteSettings, getRequestDomain, getRequestLocale } from '@/lib/optimizely'
+import { BrandMark } from '@/components/layout/BrandMark'
 
 export default async function Footer() {
   const settings = await getSiteSettings(await getRequestDomain(), await getRequestLocale())
 
-  const themeLogoSrc    = settings?.logo?.url?.default ?? '/brand/logo/optitech-icon.svg'
-  const logoAlt         = settings?.logoAlt ?? 'OptiTech'
+  const siteName        = (settings?.siteName as string | undefined) ?? 'Site Accelerator'
+  const themeLogoSrc    = settings?.logo?.url?.default as string | undefined
+  const logoAlt         = settings?.logoAlt ?? siteName
   const themeLogoInvert = settings?.logoInvertDark === true
 
   const footerRef          = (settings?.footerRef?.item ?? settings?.footerRef) as any | undefined
@@ -142,20 +144,24 @@ export default async function Footer() {
             className="inline-flex items-center hover:opacity-80 transition-opacity duration-200 ease-quick"
             style={{ filter: 'drop-shadow(0 4px 16px var(--ot-bloom-brand-faint))' }}
           >
-            <Image
-              src={footerLogoSrc}
-              alt={logoAlt}
-              width={444}
-              height={90}
-              // .logo-invert-dark inverts on a dark panel and resolves to filter:none
-              // under [data-theme="light"] (globals.css), so Light mode shows the original logo.
-              className={cn(logoSizeClass, footerLogoInvert && 'logo-invert-dark')}
-            />
+            {footerLogoSrc ? (
+              <Image
+                src={footerLogoSrc}
+                alt={logoAlt}
+                width={444}
+                height={90}
+                // .logo-invert-dark inverts on a dark panel and resolves to filter:none
+                // under [data-theme="light"] (globals.css), so Light mode shows the original logo.
+                className={cn(logoSizeClass, footerLogoInvert && 'logo-invert-dark')}
+              />
+            ) : (
+              <BrandMark name={siteName} size="lg" className="text-fg" />
+            )}
           </Link>
 
           {descriptionHtml && (
             <div
-              className="mt-sm max-w-[58ch] text-[0.875rem] leading-relaxed text-fg-muted [&_p]:m-0 [&_p+p]:mt-[0.5em] [&_strong]:font-semibold [&_strong]:text-fg [&_em]:not-italic [&_em]:text-accent [&_a]:text-fg-muted [&_a]:underline [&_a]:decoration-fg/20 [&_a:hover]:text-fg [&_a:hover]:decoration-fg/50 transition-colors duration-150"
+              className="mt-sm max-w-(--ot-measure-tight) text-body leading-body text-fg-muted [&_p]:m-0 [&_p+p]:mt-[0.5em] [&_strong]:font-semibold [&_strong]:text-fg [&_em]:not-italic [&_em]:text-accent [&_a]:text-fg-muted [&_a]:underline [&_a]:decoration-fg/20 [&_a:hover]:text-fg [&_a:hover]:decoration-fg/50 transition-colors duration-150"
               dangerouslySetInnerHTML={{ __html: descriptionHtml }}
             />
           )}

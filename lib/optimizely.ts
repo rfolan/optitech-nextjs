@@ -2,7 +2,7 @@ import { cache } from 'react'
 import { headers } from 'next/headers'
 import { config, getClient as _getClient } from '@optimizely/cms-sdk'
 import { isSupportedLocale, DEFAULT_LOCALE } from '@/lib/i18n/config'
-import { resolveCornerStyle, resolveDisplayFont, resolveMotionScale } from '@/lib/theme-axes'
+import { resolveCornerStyle, resolvePrimaryFont, resolveMotionScale } from '@/lib/theme-axes'
 import type { Locale } from '@/lib/i18n/config'
 import { getLocale as getNextIntlLocale } from 'next-intl/server'
 
@@ -78,7 +78,7 @@ export async function getRequestDomain(): Promise<string> {
  * Returns the full base URL (protocol + host) for the current request.
  * Used to filter content queries to the correct Optimizely site channel,
  * matching what is stored as _metadata.url.base in Content Graph.
- * e.g. "https://optitech-nextjs-tim.vercel.app" or "http://localhost:3000"
+ * e.g. "https://your-site.vercel.app" or "http://localhost:3000"
  */
 export async function getRequestBaseUrl(): Promise<string> {
   try {
@@ -125,7 +125,7 @@ const THEME_QUERY = `
         colorFgMuted
         colorFgMutedLight
         cornerStyle
-        displayFont
+        primaryFont
         motionIntensity
         siteName
         defaultSeoDescription
@@ -410,7 +410,7 @@ const _fetchAllThemeManagers = cache(async function fetchAllThemeManagers(locale
  *
  * Returning null on no match is intentional: an unrecognised domain (e.g. a
  * fresh Vercel deployment whose URL hasn't been registered in any ThemeManager
- * yet) should render with the default CSS token values ("generic OptiTech
+ * yet) should render with the default CSS token values ("generic default-theme
  * branding") rather than inheriting whatever theme was most recently published.
  * All callers (Header, Footer, layout) handle null gracefully via optional
  * chaining and hardcoded fallback values.
@@ -478,8 +478,9 @@ export function buildThemeCSS(settings: any): string {
     root.push(`--ot-radius-control: ${corner.control}`)
   }
 
-  const displayFontVar = resolveDisplayFont(settings.displayFont)
-  if (displayFontVar) root.push(`--ot-font-display: ${displayFontVar}`)
+  // Primary font drives the whole sans hierarchy (display → body → label).
+  const primaryFontVar = resolvePrimaryFont(settings.primaryFont)
+  if (primaryFontVar) root.push(`--ot-font-sans: ${primaryFontVar}, system-ui, sans-serif`)
 
   // Scales every --ot-dur-* token (incl. ambient loops). Cannot re-enable motion
   // a visitor disabled — the reduce-motion static blocks are independent of this.

@@ -7,7 +7,7 @@ import { ADMIN_BLOCK_TYPES } from '@/lib/admin/contentTypes'
 import { getRecentContent } from '@/lib/admin/graph'
 import { getSiteSettings, getRequestDomain, getRequestLocale } from '@/lib/optimizely'
 
-export const metadata: Metadata = { title: 'Dashboard — OptiAdmin' }
+export const metadata: Metadata = { title: 'Dashboard — Accelerator Admin' }
 
 function categoryBadge(category: string): string {
   switch (category) {
@@ -22,7 +22,7 @@ export default async function DashboardPage() {
   const domain   = await getRequestDomain()
   const locale   = await getRequestLocale()
   const settings = await getSiteSettings(domain, locale)
-  const siteName = (settings?.siteName as string | undefined) ?? 'OptiTech'
+  const siteName = (settings?.siteName as string | undefined) ?? 'Site Accelerator'
 
   const recentItems = await getRecentContent(8)
 

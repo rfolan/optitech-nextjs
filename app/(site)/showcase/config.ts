@@ -1,6 +1,8 @@
 // ─── Shared showcase navigation config ───────────────────────────────────────
 
-export type ShowcaseItem = { label: string; slug: string }
+// `href` overrides the default `/showcase/<category>/<slug>` route — used for
+// in-page anchor links (e.g. the Theme playground's section jumps).
+export type ShowcaseItem = { label: string; slug: string; href?: string }
 
 export type ShowcaseCategory = {
   label: string
@@ -36,6 +38,9 @@ export const CATEGORIES: ShowcaseCategory[] = [
       { label: 'Resource Library', slug: 'resource-library' },
       { label: 'Callout',          slug: 'callout'          },
       { label: 'Divider',          slug: 'divider'          },
+      { label: 'Event Listing',    slug: 'event-listing'    },
+      { label: 'Practitioner Listing', slug: 'practitioner-listing' },
+      { label: 'Location Listing',     slug: 'location-listing'     },
     ],
   },
   {
@@ -45,7 +50,21 @@ export const CATEGORIES: ShowcaseCategory[] = [
     href:  '/showcase/pages/blog',
     items: [
       { label: 'Blog',   slug: 'blog'   },
+      { label: 'Event',  slug: 'event'  },
       { label: 'Folder', slug: 'folder' },
+    ],
+  },
+  {
+    label: 'Layout',
+    slug:  'layout',
+    match: '/showcase/layout',
+    href:  '/showcase/layout/row-rhythm',
+    items: [
+      { label: 'Row Rhythm',        slug: 'row-rhythm'       },
+      { label: 'Section Overlap',   slug: 'section-overlap'  },
+      { label: 'Carousel',          slug: 'carousel'         },
+      { label: 'Row Settings',      slug: 'row-settings'     },
+      { label: 'Section Settings',  slug: 'section-settings' },
     ],
   },
   {
@@ -53,20 +72,14 @@ export const CATEGORIES: ShowcaseCategory[] = [
     slug:  'theme',
     match: '/showcase/theme',
     href:  '/showcase/theme',
-    items: [],
-  },
-  {
-    label: 'Tokens',
-    slug:  'tokens',
-    match: '/showcase/tokens',
-    href:  '/showcase/tokens/colors',
+    // Single live playground; sub-items jump to preview sections on the page.
     items: [
-      { label: 'Colors',        slug: 'colors'     },
-      { label: 'Typography',    slug: 'typography' },
-      { label: 'Buttons',       slug: 'buttons'    },
-      { label: 'Form Elements', slug: 'inputs'     },
-      { label: 'Spacing',       slug: 'spacing'    },
-      { label: 'Motion',        slug: 'motion'     },
+      { label: 'Colors',        slug: 'colors',     href: '/showcase/theme#colors'     },
+      { label: 'Typography',    slug: 'typography', href: '/showcase/theme#typography' },
+      { label: 'Buttons',       slug: 'buttons',    href: '/showcase/theme#buttons'    },
+      { label: 'Form Elements', slug: 'inputs',     href: '/showcase/theme#inputs'     },
+      { label: 'Spacing',       slug: 'spacing',    href: '/showcase/theme#spacing'    },
+      { label: 'Motion',        slug: 'motion',     href: '/showcase/theme#motion'     },
     ],
   },
 ]
